@@ -1,10 +1,13 @@
 package com.github.tvbox.osc.player.controller;
 
 import android.content.Context;
+import android.graphics.drawable.Drawable;
+import android.os.Handler;
 import android.os.Message;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.animation.TranslateAnimation;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
@@ -54,9 +57,28 @@ public class VodController extends BaseController {
                     }
                     case 1002: { // 显示底部菜单
                         mBottomRoot.setVisibility(VISIBLE);
+                        TranslateAnimation animate = new TranslateAnimation(
+                                0,                // fromXDelta
+                                0,                  // toXDelta
+                                mBottomRoot.getHeight(),    // fromYDelta
+                                0);                 // toYDelta
+                        animate.setDuration(400);
+                        animate.setFillAfter(true);
+                        mBottomRoot.startAnimation(animate);
+                        mBottomRoot.requestFocus();
                         break;
                     }
                     case 1003: { // 隐藏底部菜单
+                        TranslateAnimation animate = new TranslateAnimation(
+                                0,                 // fromXDelta
+                                0,                   // toXDelta
+                                0,                 // fromYDelta
+                                //mBottomRoot.getHeight());  // toYDelta
+                                // takagen99: Quick fix VOD controller shows after PIP
+                                1200);
+                        animate.setDuration(800);
+                        animate.setFillAfter(true);
+                        mBottomRoot.startAnimation(animate);
                         mBottomRoot.setVisibility(GONE);
                         break;
                     }
@@ -99,6 +121,12 @@ public class VodController extends BaseController {
     TextView mPlayerTimeSkipBtn;
     TextView mPlayerTimeStepBtn;
 
+    // takagen99 : Added for Fast Forward Button
+    TextView mPlayerFFwd;
+    float mSpeed;
+    Drawable dPlay = getResources().getDrawable(R.drawable.play_play);
+    Drawable dFFwd = getResources().getDrawable(R.drawable.play_ffwd);
+
     @Override
     protected void initView() {
         super.initView();
@@ -122,6 +150,9 @@ public class VodController extends BaseController {
         mPlayerTimeStartBtn = findViewById(R.id.play_time_start);
         mPlayerTimeSkipBtn = findViewById(R.id.play_time_end);
         mPlayerTimeStepBtn = findViewById(R.id.play_time_step);
+        mPlayerFFwd = findViewById(R.id.play_ff);
+
+        mBottomRoot.setVisibility(INVISIBLE);
 
         mGridView.setLayoutManager(new V7LinearLayoutManager(getContext(), 0, false));
         ParseAdapter parseAdapter = new ParseAdapter();
@@ -176,7 +207,7 @@ public class VodController extends BaseController {
         mPlayerRetry.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                listener.replay();
+                listener.replay(true);
                 hideBottom();
             }
         });
@@ -219,6 +250,8 @@ public class VodController extends BaseController {
                     speed += 0.25f;
                     if (speed > 3)
                         speed = 0.5f;
+                    if (speed == 1)
+                        mPlayerFFwd.setCompoundDrawablesWithIntrinsicBounds(dFFwd, null, null, null);
                     mPlayerConfig.put("sp", speed);
                     updatePlayerCfgView();
                     listener.updatePlayerCfg();
@@ -226,6 +259,22 @@ public class VodController extends BaseController {
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
+            }
+        });
+        // takagen99: Add long press to reset speed
+        mPlayerSpeedBtn.setOnLongClickListener(new OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                try {
+                    mPlayerFFwd.setCompoundDrawablesWithIntrinsicBounds(dFFwd, null, null, null);
+                    mPlayerConfig.put("sp", 1.0f);
+                    updatePlayerCfgView();
+                    listener.updatePlayerCfg();
+                    mControlWrapper.setSpeed(1.0f);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                return true;
             }
         });
         mPlayerBtn.setOnClickListener(new OnClickListener() {
@@ -250,7 +299,8 @@ public class VodController extends BaseController {
                     mPlayerConfig.put("pl", playerType);
                     updatePlayerCfgView();
                     listener.updatePlayerCfg();
-                    listener.replay();
+                    listener.replay(false);
+                    view.requestFocus();
                     // hideBottom();
                 } catch (JSONException e) {
                     e.printStackTrace();
@@ -276,8 +326,9 @@ public class VodController extends BaseController {
                     mPlayerConfig.put("ijk", ijk);
                     updatePlayerCfgView();
                     listener.updatePlayerCfg();
-                    listener.replay();
-                    hideBottom();
+                    listener.replay(false);
+                    view.requestFocus();
+                    // hideBottom();
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
@@ -300,6 +351,20 @@ public class VodController extends BaseController {
                 }
             }
         });
+        // takagen99: Add long press to reset counter
+        mPlayerTimeStartBtn.setOnLongClickListener(new OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                try {
+                    mPlayerConfig.put("st", 0);
+                    updatePlayerCfgView();
+                    listener.updatePlayerCfg();
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                return true;
+            }
+        });
         mPlayerTimeSkipBtn.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -317,6 +382,20 @@ public class VodController extends BaseController {
                 }
             }
         });
+        // takagen99: Add long press to reset counter
+        mPlayerTimeSkipBtn.setOnLongClickListener(new OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                try {
+                    mPlayerConfig.put("et", 0);
+                    updatePlayerCfgView();
+                    listener.updatePlayerCfg();
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                return true;
+            }
+        });
         mPlayerTimeStepBtn.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -329,6 +408,38 @@ public class VodController extends BaseController {
                 updatePlayerCfgView();
             }
         });
+        // takagen99: Add long press to reset counter
+        mPlayerTimeStepBtn.setOnLongClickListener(new OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                Hawk.put(HawkConfig.PLAY_TIME_STEP, 5);
+                updatePlayerCfgView();
+                return true;
+            }
+        });
+
+        mPlayerFFwd.setOnClickListener(new OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (mSpeed == 5.0f) {
+                    mSpeed = 1.0f;
+                    mPlayerFFwd.setCompoundDrawablesWithIntrinsicBounds(dFFwd, null, null, null);
+                } else {
+                    mSpeed = 5.0f;
+                    mPlayerFFwd.setCompoundDrawablesWithIntrinsicBounds(dPlay, null, null, null);
+                }
+                ;
+                try {
+                    mPlayerConfig.put("sp", mSpeed);
+                    updatePlayerCfgView();
+                    listener.updatePlayerCfg();
+                    mControlWrapper.setSpeed(mSpeed);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
     }
 
     @Override
@@ -388,7 +499,7 @@ public class VodController extends BaseController {
 
         void updatePlayerCfg();
 
-        void replay();
+        void replay(boolean replay);
 
         void errReplay();
     }
@@ -472,9 +583,9 @@ public class VodController extends BaseController {
     protected void updateSeekUI(int curr, int seekTo, int duration) {
         super.updateSeekUI(curr, seekTo, duration);
         if (seekTo > curr) {
-            mProgressIcon.setImageResource(R.drawable.icon_pre);
+            mProgressIcon.setImageResource(R.drawable.play_ffwd);
         } else {
-            mProgressIcon.setImageResource(R.drawable.icon_back);
+            mProgressIcon.setImageResource(R.drawable.play_rewind);
         }
         mProgressText.setText(PlayerUtils.stringForTime(seekTo) + " / " + PlayerUtils.stringForTime(duration));
         mHandler.sendEmptyMessage(1000);
@@ -515,24 +626,36 @@ public class VodController extends BaseController {
     void showBottom() {
         mHandler.removeMessages(1003);
         mHandler.sendEmptyMessage(1002);
+        mHandler.postDelayed(mHideBottomRunnable, 10000);
     }
+
+    Runnable mHideBottomRunnable = new Runnable() {
+        @Override
+        public void run() {
+            hideBottom();
+        }
+    };
 
     void hideBottom() {
         mHandler.removeMessages(1002);
         mHandler.sendEmptyMessage(1003);
+        mHandler.removeCallbacks(mHideBottomRunnable);
     }
 
     @Override
     public boolean onKeyEvent(KeyEvent event) {
+        int keyCode = event.getKeyCode();
+        int action = event.getAction();
+        boolean isInPlayback = isInPlaybackState();
+
         if (super.onKeyEvent(event)) {
             return true;
         }
         if (isBottomVisible()) {
+            mHandler.removeCallbacks(mHideBottomRunnable);
+            mHandler.postDelayed(mHideBottomRunnable, 10000);
             return super.dispatchKeyEvent(event);
         }
-        boolean isInPlayback = isInPlaybackState();
-        int keyCode = event.getKeyCode();
-        int action = event.getAction();
         if (action == KeyEvent.ACTION_DOWN) {
             if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT || keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
                 if (isInPlayback) {
@@ -544,10 +667,11 @@ public class VodController extends BaseController {
                     togglePlay();
                     return true;
                 }
-            } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-            } else if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+//            } else if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {   // takagen99 : Up to show
+            } else if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN || keyCode == KeyEvent.KEYCODE_DPAD_UP) {
                 if (!isBottomVisible()) {
                     showBottom();
+                    return true;
                 }
             }
         } else if (action == KeyEvent.ACTION_UP) {

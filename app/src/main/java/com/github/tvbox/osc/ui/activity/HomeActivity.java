@@ -6,7 +6,9 @@ import android.animation.AnimatorSet;
 import android.animation.IntEvaluator;
 import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.KeyEvent;
@@ -18,8 +20,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.viewpager.widget.ViewPager;
 
 import com.github.tvbox.osc.R;
@@ -28,10 +32,13 @@ import com.github.tvbox.osc.base.BaseActivity;
 import com.github.tvbox.osc.base.BaseLazyFragment;
 import com.github.tvbox.osc.bean.AbsSortXml;
 import com.github.tvbox.osc.bean.MovieSort;
+import com.github.tvbox.osc.bean.SourceBean;
 import com.github.tvbox.osc.event.RefreshEvent;
 import com.github.tvbox.osc.server.ControlManager;
 import com.github.tvbox.osc.ui.adapter.HomePageAdapter;
+import com.github.tvbox.osc.ui.adapter.SelectDialogAdapter;
 import com.github.tvbox.osc.ui.adapter.SortAdapter;
+import com.github.tvbox.osc.ui.dialog.SelectDialog;
 import com.github.tvbox.osc.ui.dialog.TipDialog;
 import com.github.tvbox.osc.ui.fragment.GridFragment;
 import com.github.tvbox.osc.ui.fragment.UserFragment;
@@ -51,6 +58,7 @@ import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
+import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
@@ -61,9 +69,14 @@ import java.util.List;
 import me.jessyan.autosize.utils.AutoSizeUtils;
 
 public class HomeActivity extends BaseActivity {
+
+    // takagen99: Added to allow read string
+    private static Resources res;
+
     private LinearLayout topLayout;
     private LinearLayout contentLayout;
     private TextView tvDate;
+    private TextView tvName;
     private TvRecyclerView mGridView;
     private NoScrollViewPager mViewPager;
     private SourceViewModel sourceViewModel;
@@ -83,7 +96,7 @@ public class HomeActivity extends BaseActivity {
         public void run() {
             Date date = new Date();
             @SuppressLint("SimpleDateFormat")
-            SimpleDateFormat timeFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm");
+            SimpleDateFormat timeFormat = new SimpleDateFormat(getString(R.string.hm_date1) + " , " + getString(R.string.hm_date2));
             tvDate.setText(timeFormat.format(date));
             mHandler.postDelayed(this, 1000);
         }
@@ -98,6 +111,9 @@ public class HomeActivity extends BaseActivity {
 
     @Override
     protected void init() {
+        // takagen99: Added to allow read string
+        res = getResources();
+
         EventBus.getDefault().register(this);
         ControlManager.get().startServer();
         initView();
@@ -111,9 +127,15 @@ public class HomeActivity extends BaseActivity {
         initData();
     }
 
+    // takagen99: Added to allow read string
+    public static Resources getRes() {
+        return res;
+    }
+
     private void initView() {
         this.topLayout = findViewById(R.id.topLayout);
         this.tvDate = findViewById(R.id.tvDate);
+        this.tvName = findViewById(R.id.tvName);
         this.contentLayout = findViewById(R.id.contentLayout);
         this.mGridView = findViewById(R.id.mGridView);
         this.mViewPager = findViewById(R.id.mViewPager);
@@ -153,10 +175,12 @@ public class HomeActivity extends BaseActivity {
 
             @Override
             public void onItemClick(TvRecyclerView parent, View itemView, int position) {
-                if (itemView != null && currentSelected == position && !sortAdapter.getItem(position).filters.isEmpty()) { // 弹出筛选
+                if (itemView != null && currentSelected == position) {
                     BaseLazyFragment baseLazyFragment = fragments.get(currentSelected);
-                    if ((baseLazyFragment instanceof GridFragment)) {
+                    if ((baseLazyFragment instanceof GridFragment) && !sortAdapter.getItem(position).filters.isEmpty()) {// 弹出筛选
                         ((GridFragment) baseLazyFragment).showFilter();
+                    } else if (baseLazyFragment instanceof UserFragment) {
+                        showSiteSwitch();
                     }
                 }
             }
@@ -200,7 +224,17 @@ public class HomeActivity extends BaseActivity {
     private boolean dataInitOk = false;
     private boolean jarInitOk = false;
 
+    // takagen99 : Switch to show / hide source title
+    boolean HomeShow = Hawk.get(HawkConfig.HOME_SHOW_SOURCE, false);
     private void initData() {
+        SourceBean home = ApiConfig.get().getHomeSourceBean();
+
+        // takagen99 : Switch to show / hide source title
+        if (HomeShow) {
+            if (home != null && home.getName() != null && !home.getName().isEmpty())
+                tvName.setText(home.getName());
+        }
+
         if (dataInitOk && jarInitOk) {
             showLoading();
             sourceViewModel.getSort(ApiConfig.get().getHomeSourceBean().getKey());
@@ -222,7 +256,7 @@ public class HomeActivity extends BaseActivity {
                             @Override
                             public void run() {
                                 if (!useCacheConfig)
-                                    Toast.makeText(HomeActivity.this, "自定义jar加载成功", Toast.LENGTH_SHORT).show();
+                                    Toast.makeText(HomeActivity.this, getString(R.string.hm_ok), Toast.LENGTH_SHORT).show();
                                 initData();
                             }
                         }, 50);
@@ -239,7 +273,7 @@ public class HomeActivity extends BaseActivity {
                         mHandler.post(new Runnable() {
                             @Override
                             public void run() {
-                                Toast.makeText(HomeActivity.this, "jar加载失败", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(HomeActivity.this, getString(R.string.hm_notok), Toast.LENGTH_SHORT).show();
                                 initData();
                             }
                         });
@@ -292,7 +326,7 @@ public class HomeActivity extends BaseActivity {
                     @Override
                     public void run() {
                         if (dialog == null)
-                            dialog = new TipDialog(HomeActivity.this, msg, "重试", "取消", new TipDialog.OnListener() {
+                            dialog = new TipDialog(HomeActivity.this, msg, getString(R.string.hm_retry), getString(R.string.hm_cancel), new TipDialog.OnListener() {
                                 @Override
                                 public void left() {
                                     mHandler.post(new Runnable() {
@@ -374,15 +408,14 @@ public class HomeActivity extends BaseActivity {
             return;
         }
         BaseLazyFragment baseLazyFragment = this.fragments.get(i);
-        if (baseLazyFragment instanceof GridFragment) {
-            View view = this.sortFocusView;
-            if (view != null && !view.isFocused()) {
-                this.sortFocusView.requestFocus();
-            } else if (this.sortFocused != 0) {
-                this.mGridView.setSelection(0);
-            } else {
-                exit();
+        View view = this.sortFocusView;
+        if (view != null && !view.isFocused()) {
+            this.sortFocusView.requestFocus();
+            if (i == 0) { // 只有我的页面 才滚动到顶部
+                baseLazyFragment.scrollTop();
             }
+        } else if (this.sortFocused != 0) {
+            this.mGridView.setSelection(0);
         } else {
             exit();
         }
@@ -393,7 +426,7 @@ public class HomeActivity extends BaseActivity {
             super.onBackPressed();
         } else {
             mExitTime = System.currentTimeMillis();
-            Toast.makeText(mContext, "再按一次返回键退出应用", Toast.LENGTH_SHORT).show();
+            Toast.makeText(mContext, getString(R.string.hm_exit), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -521,6 +554,54 @@ public class HomeActivity extends BaseActivity {
         EventBus.getDefault().unregister(this);
         AppManager.getInstance().appExit(0);
         ControlManager.get().stopServer();
+    }
+
+    // Site Switch on Home Button
+    void showSiteSwitch() {
+        List<SourceBean> sites = ApiConfig.get().getSourceBeanList();
+        if (sites.size() > 0) {
+            String homeSourceKey = ApiConfig.get().getHomeSourceBean().getKey();
+            SelectDialog<SourceBean> dialog = new SelectDialog<>(HomeActivity.this);
+            dialog.setTip("请选择首页数据源");
+            dialog.setAdapter(new SelectDialogAdapter.SelectDialogInterface<SourceBean>() {
+                @Override
+                public void click(SourceBean value, int pos) {
+                    ApiConfig.get().setSourceBean(value);
+                }
+
+                @Override
+                public String getDisplay(SourceBean val) {
+                    return val.getName();
+                }
+            }, new DiffUtil.ItemCallback<SourceBean>() {
+                @Override
+                public boolean areItemsTheSame(@NonNull @NotNull SourceBean oldItem, @NonNull @NotNull SourceBean newItem) {
+                    return oldItem == newItem;
+                }
+
+                @Override
+                public boolean areContentsTheSame(@NonNull @NotNull SourceBean oldItem, @NonNull @NotNull SourceBean newItem) {
+                    return oldItem.getKey().equals(newItem.getKey());
+                }
+            }, sites, sites.indexOf(ApiConfig.get().getHomeSourceBean()));
+            dialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                @Override
+                public void onDismiss(DialogInterface dialog) {
+                    if (homeSourceKey != null && !homeSourceKey.equals(Hawk.get(HawkConfig.HOME_API, ""))) {
+                        Intent intent = getApplicationContext().getPackageManager().getLaunchIntentForPackage(getApplication().getPackageName());
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        Bundle bundle = new Bundle();
+                        bundle.putBoolean("useCache", true);
+                        intent.putExtras(bundle);
+                        getApplicationContext().startActivity(intent);
+                        android.os.Process.killProcess(android.os.Process.myPid());
+                        System.exit(0);
+                    }
+                }
+            });
+            dialog.show();
+        }
     }
 
 }

@@ -7,6 +7,7 @@ import android.util.Base64;
 
 import com.github.catvod.crawler.JarLoader;
 import com.github.catvod.crawler.Spider;
+import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.base.App;
 import com.github.tvbox.osc.bean.LiveChannelGroup;
 import com.github.tvbox.osc.bean.IJKCode;
@@ -14,6 +15,7 @@ import com.github.tvbox.osc.bean.LiveChannelItem;
 import com.github.tvbox.osc.bean.ParseBean;
 import com.github.tvbox.osc.bean.SourceBean;
 import com.github.tvbox.osc.server.ControlManager;
+import com.github.tvbox.osc.ui.activity.HomeActivity;
 import com.github.tvbox.osc.util.AdBlocker;
 import com.github.tvbox.osc.util.DefaultConfig;
 import com.github.tvbox.osc.util.HawkConfig;
@@ -55,6 +57,7 @@ public class ApiConfig {
     private List<String> vipParseFlags;
     private List<IJKCode> ijkCodes;
     private String spider = null;
+    public String wallpaper = "";
 
     private SourceBean emptyHome = new SourceBean();
 
@@ -79,7 +82,8 @@ public class ApiConfig {
     }
 
     public void loadConfig(boolean useCache, LoadConfigCallback callback, Activity activity) {
-        String apiUrl = Hawk.get(HawkConfig.API_URL, "");
+        // Embedded Source : Update in Strings.xml if required
+        String apiUrl = Hawk.get(HawkConfig.API_URL, HomeActivity.getRes().getString(R.string.app_source));
         if (apiUrl.isEmpty()) {
             callback.error("-1");
             return;
@@ -226,6 +230,8 @@ public class ApiConfig {
         JsonObject infoJson = new Gson().fromJson(jsonStr, JsonObject.class);
         // spider
         spider = DefaultConfig.safeJsonString(infoJson, "spider", "");
+        // wallpaper
+        wallpaper = DefaultConfig.safeJsonString(infoJson, "wallpaper", "");
         // 远端站点源
         SourceBean firstSite = null;
         for (JsonElement opt : infoJson.get("sites").getAsJsonArray()) {
@@ -241,6 +247,7 @@ public class ApiConfig {
             sb.setFilterable(DefaultConfig.safeJsonInt(obj, "filterable", 1));
             sb.setPlayerUrl(DefaultConfig.safeJsonString(obj, "playUrl", ""));
             sb.setExt(DefaultConfig.safeJsonString(obj, "ext", ""));
+            sb.setJar(DefaultConfig.safeJsonString(obj, "jar", ""));
             sb.setCategories(DefaultConfig.safeJsonStringList(obj, "categories"));
             if (firstSite == null)
                 firstSite = sb;
@@ -391,7 +398,7 @@ public class ApiConfig {
     }
 
     public Spider getCSP(SourceBean sourceBean) {
-        return jarLoader.getSpider(sourceBean.getKey(), sourceBean.getApi(), sourceBean.getExt());
+        return jarLoader.getSpider(sourceBean.getKey(), sourceBean.getApi(), sourceBean.getExt(), sourceBean.getJar());
     }
 
     public Object[] proxyLocal(Map param) {

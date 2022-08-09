@@ -189,8 +189,21 @@
 -keep class com.google.android.exoplayer2.** { *; }
 -dontwarn com.google.android.exoplayer2.**
 
+# sardine webdav
+-keep class com.thegrizzlylabs.sardineandroid.** { *; }
+-dontwarn com.thegrizzlylabs.sardineandroid.**
+
+# filepicker
+-keep class com.obsez.android.lib.filechooser.** { *; }
+-dontwarn com.obsez.android.lib.filechooser.**
+
+# jcifs (smb)
+-keep class jcifs.** { *; }
+-dontwarn jcifs.**
+
 # 实体类
 #-keep class com.github.tvbox.osc.bean.** { *; }
+-keep class com.github.tvbox.osc.ui.fragment.homes.**{*;}
 #CardView
 -keep class com.github.tvbox.osc.ui.tv.widget.card.**{*;}
 #ViewObj
@@ -199,3 +212,6 @@
 }
 
 -keep class com.github.catvod.crawler.*{*;}
+
+# magnet：解决模拟器推送 磁力链接 闪退
+-keep class com.xunlei.downloadlib.** {*;}

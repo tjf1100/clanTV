@@ -4,6 +4,7 @@ import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.IntEvaluator;
 import android.animation.ObjectAnimator;
+import android.os.Build;
 import android.os.Handler;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -95,6 +96,19 @@ public class LivePlayActivity extends BaseActivity {
 
     @Override
     protected void init() {
+
+        // takagen99 : Hide only when video playing
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            int uiOptions = getWindow().getDecorView().getSystemUiVisibility();
+            uiOptions |= View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
+            uiOptions |= View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+            uiOptions |= View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
+            uiOptions |= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+            uiOptions |= View.SYSTEM_UI_FLAG_FULLSCREEN;
+            uiOptions |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+            getWindow().getDecorView().setSystemUiVisibility(uiOptions);
+        }
+
         setLoadSir(findViewById(R.id.live_root));
         mVideoView = findViewById(R.id.mVideoView);
 
@@ -115,6 +129,17 @@ public class LivePlayActivity extends BaseActivity {
         initSettingItemView();
         initLiveChannelList();
         initLiveSettingGroupList();
+    }
+
+    // takagen99
+    public boolean supportsPiPMode() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
+    }
+    @Override
+    public void onUserLeaveHint () {
+        if (supportsPiPMode()) {
+            enterPictureInPictureMode();
+        }
     }
 
     @Override
@@ -172,6 +197,8 @@ public class LivePlayActivity extends BaseActivity {
         return super.dispatchKeyEvent(event);
     }
 
+    // takagen99 : Use onStopCalled to track close activity
+    private boolean onStopCalled;
     @Override
     protected void onResume() {
         super.onResume();
@@ -179,13 +206,41 @@ public class LivePlayActivity extends BaseActivity {
             mVideoView.resume();
         }
     }
+    @Override
+    protected void onStop() {
+        super.onStop();
+        onStopCalled = true;
+    }
 
-
+    // takagen99
     @Override
     protected void onPause() {
         super.onPause();
         if (mVideoView != null) {
-            mVideoView.pause();
+            if (supportsPiPMode()) {
+                if (isInPictureInPictureMode()) {
+                    // Continue playback
+                    mVideoView.resume();
+                } else {
+                    // Pause playback
+                    mVideoView.pause();
+                }
+            } else {
+                mVideoView.pause();
+            }
+        }
+    }
+    // takagen99 : PIP fix to close video when close window
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode);
+        if (supportsPiPMode()) {
+            if (!isInPictureInPictureMode()) {
+                // Closed playback
+                if (onStopCalled) {
+                    mVideoView.release();
+                }
+            }
         }
     }
 

@@ -25,11 +25,17 @@ import com.github.tvbox.osc.util.FastClickCheckUtil;
 import com.github.tvbox.osc.util.HawkConfig;
 import com.github.tvbox.osc.util.OkGoHelper;
 import com.github.tvbox.osc.util.PlayerHelper;
+import com.github.tvbox.osc.util.HistoryHelper;
+import com.lzy.okgo.OkGo;
+import com.lzy.okgo.callback.FileCallback;
+import com.lzy.okgo.model.Progress;
+import com.lzy.okgo.model.Response;
 import com.orhanobut.hawk.Hawk;
 
 import org.greenrobot.eventbus.EventBus;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,7 +58,10 @@ public class ModelSettingFragment extends BaseLazyFragment {
     private TextView tvHomeApi;
     private TextView tvDns;
     private TextView tvHomeRec;
+    private TextView tvHomeNum;
     private TextView tvSearchView;
+    private TextView tvShowPreviewText;
+    private TextView tvHomeShow;
 
     public static ModelSettingFragment newInstance() {
         return new ModelSettingFragment().setArguments();
@@ -69,6 +78,10 @@ public class ModelSettingFragment extends BaseLazyFragment {
 
     @Override
     protected void init() {
+        tvHomeShow = findViewById(R.id.tvHomeShow);
+        tvHomeShow.setText(Hawk.get(HawkConfig.HOME_SHOW_SOURCE, false) ? "开启" : "关闭");
+        tvShowPreviewText = findViewById(R.id.showPreviewText);
+        tvShowPreviewText.setText(Hawk.get(HawkConfig.SHOW_PREVIEW, true) ? "开启" : "关闭");
         tvDebugOpen = findViewById(R.id.tvDebugOpen);
         tvParseWebView = findViewById(R.id.tvParseWebView);
         tvMediaCodec = findViewById(R.id.tvMediaCodec);
@@ -79,6 +92,7 @@ public class ModelSettingFragment extends BaseLazyFragment {
         tvHomeApi = findViewById(R.id.tvHomeApi);
         tvDns = findViewById(R.id.tvDns);
         tvHomeRec = findViewById(R.id.tvHomeRec);
+        tvHomeNum = findViewById(R.id.tvHomeNum);
         tvSearchView = findViewById(R.id.tvSearchView);
         tvMediaCodec.setText(Hawk.get(HawkConfig.IJK_CODEC, ""));
         tvDebugOpen.setText(Hawk.get(HawkConfig.DEBUG_OPEN, false) ? "已打开" : "已关闭");
@@ -86,17 +100,61 @@ public class ModelSettingFragment extends BaseLazyFragment {
         tvApi.setText(Hawk.get(HawkConfig.API_URL, ""));
         tvDns.setText(OkGoHelper.dnsHttpsList.get(Hawk.get(HawkConfig.DOH_URL, 0)));
         tvHomeRec.setText(getHomeRecName(Hawk.get(HawkConfig.HOME_REC, 0)));
+        tvHomeNum.setText(HistoryHelper.getHomeRecName(Hawk.get(HawkConfig.HOME_NUM,0)));
         tvSearchView.setText(getSearchView(Hawk.get(HawkConfig.SEARCH_VIEW, 0)));
         tvHomeApi.setText(ApiConfig.get().getHomeSourceBean().getName());
         tvScale.setText(PlayerHelper.getScaleName(Hawk.get(HawkConfig.PLAY_SCALE, 0)));
         tvPlay.setText(PlayerHelper.getPlayerName(Hawk.get(HawkConfig.PLAY_TYPE, 0)));
         tvRender.setText(PlayerHelper.getRenderName(Hawk.get(HawkConfig.PLAY_RENDER, 0)));
+
+        //takagen99 : Set HomeApi as default
+        findViewById(R.id.llHomeApi).requestFocus();
+
         findViewById(R.id.llDebug).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 FastClickCheckUtil.check(v);
                 Hawk.put(HawkConfig.DEBUG_OPEN, !Hawk.get(HawkConfig.DEBUG_OPEN, false));
                 tvDebugOpen.setText(Hawk.get(HawkConfig.DEBUG_OPEN, false) ? "已打开" : "已关闭");
+            }
+        });
+        findViewById(R.id.llHomeNum).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FastClickCheckUtil.check(v);
+                int defaultPos = Hawk.get(HawkConfig.HOME_NUM, 0);
+                ArrayList<Integer> types = new ArrayList<>();
+                types.add(0);
+                types.add(1);
+                types.add(2);
+                types.add(3);
+                types.add(4);
+
+                SelectDialog<Integer> dialog = new SelectDialog<>(mActivity);
+                dialog.setTip("历史条数保留");
+                dialog.setAdapter(new SelectDialogAdapter.SelectDialogInterface<Integer>() {
+                    @Override
+                    public void click(Integer value, int pos) {
+                        Hawk.put(HawkConfig.HOME_NUM, value);
+                        tvHomeNum.setText(HistoryHelper.getHomeRecName(value));
+                    }
+
+                    @Override
+                    public String getDisplay(Integer val) {
+                        return HistoryHelper.getHomeRecName(val);
+                    }
+                }, new DiffUtil.ItemCallback<Integer>() {
+                    @Override
+                    public boolean areItemsTheSame(@NonNull @NotNull Integer oldItem, @NonNull @NotNull Integer newItem) {
+                        return oldItem.intValue() == newItem.intValue();
+                    }
+
+                    @Override
+                    public boolean areContentsTheSame(@NonNull @NotNull Integer oldItem, @NonNull @NotNull Integer newItem) {
+                        return oldItem.intValue() == newItem.intValue();
+                    }
+                }, types, defaultPos);
+                dialog.show();
             }
         });
         findViewById(R.id.llParseWebVew).setOnClickListener(new View.OnClickListener() {
@@ -132,6 +190,39 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 FastClickCheckUtil.check(v);
                 AboutDialog dialog = new AboutDialog(mActivity);
                 dialog.show();
+            }
+        });
+        findViewById(R.id.llWp).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FastClickCheckUtil.check(v);
+                if (!ApiConfig.get().wallpaper.isEmpty())
+                    OkGo.<File>get(ApiConfig.get().wallpaper).execute(new FileCallback(requireActivity().getFilesDir().getAbsolutePath(), "wp") {
+                        @Override
+                        public void onSuccess(Response<File> response) {
+                            ((BaseActivity) requireActivity()).changeWallpaper(true);
+                        }
+
+                        @Override
+                        public void onError(Response<File> response) {
+                            super.onError(response);
+                        }
+
+                        @Override
+                        public void downloadProgress(Progress progress) {
+                            super.downloadProgress(progress);
+                        }
+                    });
+            }
+        });
+        findViewById(R.id.llWpRecovery).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FastClickCheckUtil.check(v);
+                File wp = new File(requireActivity().getFilesDir().getAbsolutePath() + "/wp");
+                if (wp.exists())
+                    wp.delete();
+                ((BaseActivity) requireActivity()).changeWallpaper(true);
             }
         });
         findViewById(R.id.llHomeApi).setOnClickListener(new View.OnClickListener() {
@@ -460,6 +551,25 @@ public class ModelSettingFragment extends BaseLazyFragment {
                 findViewById(R.id.llDebug).setVisibility(View.VISIBLE);
             }
         };
+
+        findViewById(R.id.showPreview).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FastClickCheckUtil.check(v);
+                Hawk.put(HawkConfig.SHOW_PREVIEW, !Hawk.get(HawkConfig.SHOW_PREVIEW, true));
+                tvShowPreviewText.setText(Hawk.get(HawkConfig.SHOW_PREVIEW, true) ? "开启" : "关闭");
+            }
+        });
+
+        // takagen99 : switch to show / hide source header
+        findViewById(R.id.llHomeShow).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                FastClickCheckUtil.check(v);
+                Hawk.put(HawkConfig.HOME_SHOW_SOURCE, !Hawk.get(HawkConfig.HOME_SHOW_SOURCE, false));
+                tvHomeShow.setText(Hawk.get(HawkConfig.HOME_SHOW_SOURCE, true) ? "开启" : "关闭");
+            }
+        });
     }
 
     @Override
