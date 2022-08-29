@@ -19,6 +19,7 @@
     <string name="hm_file">File</string>
     <string name="hm_fav">Star</string>
     <string name="hm_setting">Menu</string>
+    <string name="hm_hist_del">Removed from History</string>
 
     // Play Detail Page //
     <string name="det_play">Play</string>
@@ -104,5 +105,9 @@
     <string name="act_home">Home</string>
     <string name="act_player">Player</string>
     <string name="act_system">System</string>
+
+    // Fast Search Page //
+    <string name="fs_show_all">All</string>
+    <string name="fs_results">Results</string>
 
 </resources>

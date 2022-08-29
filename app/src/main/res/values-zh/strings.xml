@@ -19,6 +19,7 @@
     <string name="hm_file">文件</string>
     <string name="hm_fav">收藏</string>
     <string name="hm_setting">设置</string>
+    <string name="hm_hist_del">已删除历史记录</string>
 
     // Play Detail Page //
     <string name="det_play">播放</string>
@@ -104,5 +105,9 @@
     <string name="act_home">首页</string>
     <string name="act_player">播放器</string>
     <string name="act_system">系统</string>
+
+    // Fast Search Page //
+    <string name="fs_show_all">全部显示</string>
+    <string name="fs_results">搜索</string>
 
 </resources>
