@@ -55,7 +55,7 @@ public class ApiDialog extends BaseDialog {
         ivQRCode = findViewById(R.id.ivQRCode);
         tvAddress = findViewById(R.id.tvAddress);
         inputApi = findViewById(R.id.input);
-        inputApi.setText(Hawk.get(HawkConfig.API_URL, "http://www.kf666888.cn/api/tvbox?peizhi=888&to=ts&to=qj"));
+        inputApi.setText(Hawk.get(HawkConfig.API_URL, "https://clanTV.github.io/clanTV/clanTV"));
         findViewById(R.id.inputSubmit).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
